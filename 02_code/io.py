@@ -18,13 +18,17 @@ BUTTON_02 = Pin(24,mode=Pin.IN,pull=Pin.PULL_UP) # DI7_BUTTON_02
 BUTTON_03 = Pin(25,mode=Pin.IN,pull=Pin.PULL_UP) # DI8_BUTTON_03
 
 VOL_SENSE_EN = Pin(29,Pin.OUT,value=1)  # DO0_VOL_SENSE_EN
+VOL_SENSE_EN_ON = 0
 TAPE_SENSE_EN = Pin(28,Pin.OUT,value=1) # DO1_TAPE_SENSE_EN
+TAPE_SENSE_EN_ON = 1
 DO2_LED = PWM(Pin(13,Pin.OUT,value=0))
 
-
+#
+# IO READ FUNCTIONS
+#
 def readTapeSense():
     # activate optical sensor enable
-    TAPE_SENSE_EN.value(1)
+    TAPE_SENSE_EN.value(TAPE_SENSE_EN_ON)
 
     # wait
     time.sleep_ms(TAPE_SENSE_WAIT_MS)
@@ -35,19 +39,19 @@ def readTapeSense():
             TAPE_SENSE_02.value(),
             TAPE_SENSE_03.value(),
             TAPE_SENSE_04.value())
-    TAPE_SENSE_EN.value(0)
+    TAPE_SENSE_EN.value(int(not(TAPE_SENSE_EN_ON)))
     return(_)
 
 def readVolume():
     # activate optical sensor enable
-    VOL_SENSE_EN.value(0)
+    VOL_SENSE_EN.value(VOL_SENSE_EN_ON)
 
     # wait
     time.sleep_ms(VOL_WAIT_MS)
     
     # read sensor
     _ = A0_VOL.read_u16()
-    VOL_SENSE_EN.value(1)
+    VOL_SENSE_EN.value(int(not(VOL_SENSE_EN_ON)))
     return(_)
 
 def readButtons():
@@ -56,6 +60,18 @@ def readButtons():
         BUTTON_02.value(),
         BUTTON_03.value())
     return(_)
+
+#
+# GETTERS
+#
+def getPlay():
+    pass
+def getFw():
+    pass
+def getRw():
+    pass
+def getRecord():
+    pass
 
 def setLed(bright=65535):
     DO2_LED.duty_u16(bright)
