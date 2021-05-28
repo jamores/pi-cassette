@@ -26,9 +26,12 @@ class pinout:
     SPI_CS_SD = Pin(7,Pin.OUT)
     SPI_CS_MP3 = Pin(8,Pin.OUT)
 
+    AUDIO_XDCS = Pin(10,Pin.OUT,value=1)
+    AUDIO_DREQ = Pin(9,Pin.IN)
+
 VOL_WAIT_MS = 10
 BUTTON_WAIT_MS = 10
-TAPE_SENSE_WAIT_MS = 1000
+TAPE_SENSE_WAIT_MS = 100
 TAPE_SENSE_EN_ON = 0
 VOL_SENSE_EN_ON = 0
 

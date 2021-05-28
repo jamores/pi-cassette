@@ -28,4 +28,5 @@ class SPIDevice:
     def __exit__(self,type,value,traceback):
         if(self.cs):
             self.cs.high()
+        self.__class__.locks[self.id].release()
         return(False)
