@@ -66,7 +66,6 @@ class VS1053(SPIDevice):
         self.soft_reset()
         time.sleep(0.1)
         self._sci_write(_VS1053_REG_CLOCKF,0x6000)
-        self.set_volume(40,40)
 
     def set_volume(self,left,right):
         volume = ((left & 0xff) << 8) | (right & 0xff)
@@ -92,8 +91,20 @@ class VS1053(SPIDevice):
             _VS1053_MODE_SM_LINE1 | _VS1053_MODE_SM_SDINEW | _VS1053_MODE_SM_CANCEL
         )
     
+    def play(self,data_buffer,start=0,end=None):
+        pass
+        try:
+            if end is None:
+                end = len(data_buffer)
+            self._xdcs.value(0)
+            with self as spi:
+                spi.init(baudrate=_VS1053_DATA_BAUDRATE)
+                spi.write(data_buffer)
+        finally:
+            self._xdcs.value(1)
+
     def sine_test(self,n,secs):
-        self.reset()
+        #self.reset()
         mode = self._sci_read(_VS1053_REG_MODE)
         mode |= 0x0020
         self._sci_write(_VS1053_REG_MODE,mode)
@@ -104,7 +115,7 @@ class VS1053(SPIDevice):
             self._xdcs.value(0)
             with self as spi:
                 spi.init(baudrate=_VS1053_DATA_BAUDRATE)
-                spi.write(bytes([0x53, 0xEF, 0x6E,0xFF, 0x00, 0x00, 0x00, 0x00]))
+                spi.write(bytes([0x53, 0xEF, 0x6E,n & 0xFF, 0x00, 0x00, 0x00, 0x00]))
         finally:
             self._xdcs.value(1)
         time.sleep(secs)
