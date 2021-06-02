@@ -2,8 +2,9 @@ from spi_handler import SPIDevice
 from micropython import const
 import time
 
-_VS1053_CMD_BAUDRATE = const(250000)
+_VS1053_CMD_BAUDRATE =   const(250000)
 _VS1053_DATA_BAUDRATE = const(8000000)
+#_VS1053_DATA_BAUDRATE = const(1 000 000)
 # CMD
 _VS1053_SCI_READ = const(0x03)
 _VS1053_SCI_WRITE = const(0x02)
@@ -84,6 +85,7 @@ class VS1053(SPIDevice):
         # resync
         self._sci_write(_VS1053_REG_WRAMADDR, 0x1E29)
         self._sci_write(_VS1053_REG_WRAM, 0)
+        self._sci_write(_VS1053_REG_DECODETIME, 0)
 
     def stop_play(self):
         self._sci_write(
@@ -91,8 +93,20 @@ class VS1053(SPIDevice):
             _VS1053_MODE_SM_LINE1 | _VS1053_MODE_SM_SDINEW | _VS1053_MODE_SM_CANCEL
         )
     
+    def playb(self,stream,buf=bytearray(32)):
+        
+        while stream.readinto(buf):
+            while not self.ready_for_data:
+                pass
+            self._xdcs.value(0)
+            with self as spi:
+                spi.init(baudrate=_VS1053_DATA_BAUDRATE)
+                spi.write(buf)
+            self._xdcs.value(1)
+        else:
+            self.stop_play()
+
     def play(self,data_buffer,start=0,end=None):
-        pass
         try:
             if end is None:
                 end = len(data_buffer)

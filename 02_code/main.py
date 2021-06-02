@@ -4,9 +4,17 @@ import vs1053
 import time
 import uos
 
-BUFFER_SIZE = 128
+BUFFER_SIZE = 64
 
 #sd.run()
+
+class AudioFeeder(object):
+    def __init__(self,dreq):
+        self.cb_cnt = 0
+        dreq.irq(self.cb,io.Pin.IRQ_RISING)
+    def cb(self,_):
+        self.cb_cnt += 1
+    
 
 audio = vs1053.VS1053(0,
         sck = io.pinout.SPI_SCK,
@@ -29,7 +37,7 @@ if 0:
 
 if 0:
     print("io : read binary file")
-    with open("/sd/mp3_00.mp3","rb") as fp:
+    with open("/sd/mp3_01.mp3","rb") as fp:
         i_read = 0
         music_data = fp.read(BUFFER_SIZE)
         while(music_data):
@@ -46,23 +54,34 @@ if 1:
 
 if 1:
     print("audio : play MP3 file")
+    
+    #audio_feeder = AudioFeeder(io.pinout.AUDIO_DREQ)
+
     i_read = 0
     not_ready = 0
     audio.reset()
     audio.start_play()
-    with open('/sd/mp3_00.mp3',"rb") as fp:
-        music_data = fp.read(BUFFER_SIZE)
-        i_read += 1
-        #while (music_data is not None) and (music_data != "") and (i_read <=10):
-        while (music_data):
-            while not audio.ready_for_data:
-                print("loop.nr : {}.{}".format(i_read,not_ready))
-                not_ready += 1
-            audio.play(music_data)
+    
+    with open('/sd/mp3_01.mp3',"rb") as fp:
+        audio.playb(fp)
+    print("audio : STOP play MP3 file")
+
+    if 0:
+        with open('/sd/mp3_01.mp3',"rb") as fp:
             music_data = fp.read(BUFFER_SIZE)
             i_read += 1
-            print(i_read*BUFFER_SIZE)
-    print("audio : STOP play MP3 file")
+            #while (music_data is not None) and (music_data != "") and (i_read <=10):
+            while (music_data):
+                while not audio.ready_for_data:
+                    not_ready += 1
+                audio.play(music_data)
+                music_data = fp.read(BUFFER_SIZE)
+                i_read += 1
+                print(i_read*BUFFER_SIZE)
+                print("audio : irq.cb_cnt : {}".format(audio_feeder.cb_cnt))
+        print("audio : nr : {}".format(not_ready))
+        print("audio : irq.cb_cnt : {}".format(audio_feeder.cb_cnt))
+        print("audio : STOP play MP3 file")
 
 while True:
     for a in range(0,65536,10000):
