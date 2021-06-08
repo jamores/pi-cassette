@@ -2,6 +2,7 @@ import sd,io
 import sdcard,spi_handler
 import vs1053
 import time
+from machine import Pin
 import uos
 
 BUFFER_SIZE = 64
@@ -59,12 +60,19 @@ if 1:
 
     i_read = 0
     not_ready = 0
+
+    print("a.epoch DREQ {}".format(io.pinout.AUDIO_DREQ()))
     audio.reset()
+    audio.set_volume(40,40)
+    print("a.reset DREQ {}".format(io.pinout.AUDIO_DREQ()))
     audio.start_play()
+    print("a.start_play DREQ {}".format(io.pinout.AUDIO_DREQ()))
     
     with open('/sd/mp3_01.mp3',"rb") as fp:
         audio.playb(fp)
     print("audio : STOP play MP3 file")
+    print(audio._sci_read(vs1053._VS1053_REG_HDAT0))
+    print(audio._sci_read(vs1053._VS1053_REG_HDAT1))
 
     if 0:
         with open('/sd/mp3_01.mp3',"rb") as fp:

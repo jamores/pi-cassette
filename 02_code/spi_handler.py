@@ -1,5 +1,5 @@
 import _thread as threading
-from machine import SPI
+from machine import SPI,Pin
 
 class SPIDevice:
     locks = {}
@@ -9,7 +9,7 @@ class SPIDevice:
         self.id = id
         # CS
         self.cs = cs
-        if(self.cs):self.cs.init(mode=self.cs.OUT,value=1)
+        if(self.cs):self.cs.init(mode=Pin.OUT,value=1)
         # SPI channel LOCK
         try:      
             if(self.__class__.locks[id] is None):self.__class__.locks[id] = threading.allocate_lock()
@@ -19,14 +19,13 @@ class SPIDevice:
         self.spi = SPI(id,sck=sck,mosi=mosi,miso=miso)
 
     def __enter__(self):
-        if(self.__class__.locks[self.id].acquire() is False):
+        #if(self.__class__.locks[self.id].acquire() is False):
             # timeout
-            return(None)
+        #    return(None)
         if(self.cs):self.cs.low()
         return(self.spi)
 
     def __exit__(self,type,value,traceback):
-        if(self.cs):
-            self.cs.high()
-        self.__class__.locks[self.id].release()
+        if(self.cs):self.cs.high()
+        #self.__class__.locks[self.id].release()
         return(False)
