@@ -6,7 +6,7 @@ import time
 #_VS1053_DATA_BAUDRATE = const(10752000)
 
 _VS1053_CMD_BAUDRATE =   const(250000)
-_VS1053_DATA_BAUDRATE = const(8000000)
+_VS1053_DATA_BAUDRATE =  const(8000000)
 # CMD
 _VS1053_SCI_READ = const(0x03)
 _VS1053_SCI_WRITE = const(0x02)
@@ -23,10 +23,15 @@ _VS1053_REG_HDAT0 = const(0x08)
 _VS1053_REG_HDAT1 = const(0x09)
 _VS1053_REG_VOLUME = const(0x0B)
 # MODES
-_VS1053_MODE_SM_LINE1 = const(0x4000)
-_VS1053_MODE_SM_SDINEW = const(0x0800)
-_VS1053_MODE_SM_CANCEL = const(0x0008)
+_VS1053_MODE_SM_LAYER12 = const(0x0002)
 _VS1053_MODE_SM_RESET = const(0x0004)
+_VS1053_MODE_SM_CANCEL = const(0x0008)
+_VS1053_MODE_SM_DACT = const(0x0100)
+_VS1053_MODE_SM_SDIORD = const(0x0200)
+_VS1053_MODE_SM_SDINEW = const(0x0800)
+_VS1053_MODE_SM_LINE1 = const(0x4000)
+
+_VS1053_CLOCKF_VALUE = 0x8800
 
 class VS1053(SPIDevice):
     _SPI_BUFFER = bytearray(4)
@@ -41,44 +46,60 @@ class VS1053(SPIDevice):
         self.reset()
 
     def _sci_write(self, address, value):
-        self._SPI_BUFFER[0] = _VS1053_SCI_WRITE
-        self._SPI_BUFFER[1] = address & 0xff
-        self._SPI_BUFFER[2] = (value >> 8) & 0xff
-        self._SPI_BUFFER[3] = value & 0xff
+        _buf = self._SPI_BUFFER
+        _buf[0] = _VS1053_SCI_WRITE
+        _buf[1] = address & 0xff
+        _buf[2] = (value >> 8) & 0xff
+        _buf[3] = value & 0xff
         
-        with self as spi:
-            spi.init(baudrate=_VS1053_CMD_BAUDRATE)
-            spi.write(self._SPI_BUFFER)
+        #with self as spi:
+        #    spi.init(baudrate=_VS1053_CMD_BAUDRATE)
+        #    spi.write(_buf)
+        self._xdcs.value = True
+        self.wait_dreq()
+        self.spi.init(baudrate=_VS1053_CMD_BAUDRATE)
+        self.spi.write(_buf)
         
     def _sci_read(self,address):
-        self._SPI_BUFFER[0] = _VS1053_SCI_READ
-        self._SPI_BUFFER[1] =  address & 0xff
-        self._SPI_BUFFER[2] =  0xff
-        self._SPI_BUFFER[3] =  0xff
+        _buf = self._SPI_BUFFER
+        _buf[0] = _VS1053_SCI_READ
+        _buf[1] =  address & 0xff
+        _buf[2] =  0xff
+        _buf[3] =  0xff
 
         #with self as spi:
         #    spi.init(baudrate=_VS1053_CMD_BAUDRATE)
-        #    spi.write(self._SPI_BUFFER[:2])
-        #    time.sleep(0.00001)
-        #    spi.readinto(self._SPI_BUFFER)
-        with self as spi:
-            spi.init(baudrate=_VS1053_CMD_BAUDRATE)
-            spi.write_readinto(self._SPI_BUFFER,self._SPI_BUFFER)
-        return((self._SPI_BUFFER[2] << 8) | self._SPI_BUFFER[3])
+        #    spi.write_readinto(_buf,_buf)
+        self._xdcs.value = True
+        self.wait_dreq()
+        self.spi.init(baudrate=_VS1053_CMD_BAUDRATE)
+        self.spi.write_readinto(_buf,_buf)
+        return((_buf[2] << 8) | _buf[3])
 
+    def _ram_read(self,address):
+        self._sci_write(_VS1053_REG_WRAMADDR,address)
+        return(self._sci_read(_VS1053_REG_WRAM))
+    def _ram_write(self,address,value):
+        self._sci_write(_VS1053_REG_WRAMADDR,address)
+        return(self._sci_write(_VS1053_REG_WRAM,value))
 
     def soft_reset(self):
         self._sci_write(
             _VS1053_REG_MODE,
             _VS1053_MODE_SM_SDINEW | _VS1053_MODE_SM_RESET
         )
-        time.sleep(0.1)
+        time.sleep_ms(2)
+        self.wait_dreq()
+        self._sci_write(_VS1053_REG_CLOCKF,_VS1053_CLOCKF_VALUE)
+        if(self._sci_read(_VS1053_REG_CLOCKF) != _VS1053_CLOCKF_VALUE):
+            raise OSError("VS1053 _SCI_CLOCKF")
+        time.sleep_ms(1)
+        self.set_volume(40,40)
+        self.wait_dreq()
     def reset(self):
         self._xdcs(1)
         self.soft_reset()
-        self._sci_write(_VS1053_REG_CLOCKF,0x6000)
-        self.set_volume(40,40)        
-
+                
     def set_volume(self,left,right):
         volume = ((left & 0xff) << 8) | (right & 0xff)
         self._sci_write(_VS1053_REG_VOLUME,volume)
@@ -86,19 +107,24 @@ class VS1053(SPIDevice):
     @property
     def ready_for_data(self):
         return(self._dreq())
+    def wait_dreq(self):
+        while not self._dreq.value:
+            pass
+
 
     def start_play(self):
         # reset
         self._sci_write(
             _VS1053_REG_MODE,
-            _VS1053_MODE_SM_LINE1 | _VS1053_MODE_SM_SDINEW
+            _VS1053_MODE_SM_LINE1 | _VS1053_MODE_SM_SDINEW 
         )
         # resync
         #self._sci_write(_VS1053_REG_WRAMADDR, 0x1E29)
         #self._sci_write(_VS1053_REG_WRAM, 0)
-        self._sci_write(_VS1053_REG_DECODETIME, 0)
+        #self._sci_write(_VS1053_REG_DECODETIME, 0)
 
     def stop_play(self):
+        self.print_HDAT()
         self._sci_write(
             _VS1053_REG_MODE,
             _VS1053_MODE_SM_LINE1 | _VS1053_MODE_SM_SDINEW | _VS1053_MODE_SM_CANCEL
@@ -107,13 +133,12 @@ class VS1053(SPIDevice):
     def playb(self,stream,buf=bytearray(32)):
         
         while stream.readinto(buf):
-            while not self.ready_for_data:
-                pass
+            #while not self._dreq():
+            #    pass
             self._xdcs.value(0)
             with self as spi:
                 spi.init(baudrate=_VS1053_DATA_BAUDRATE)
                 spi.write(buf)
-            print(".")
             self._xdcs.value(1)
         else:
             self.stop_play()
@@ -152,3 +177,19 @@ class VS1053(SPIDevice):
                 spi.write(bytes([0x45, 0x78, 0x69, 0x74, 0x00, 0x00, 0x00, 0x00]))
         finally:
             self._xdcs.value(1)
+    
+    def print_HDAT(self):
+        hdat1 = self._sci_read(_VS1053_REG_HDAT1)
+        hdat0 = self._sci_read(_VS1053_REG_HDAT0)
+
+        print("HDAT1 : "+str(hdat1))
+        print("..sync "+str((hdat1&0xff70)>>5))
+        print("..ID "+str((hdat1>>3)&0x0003))
+        print("..layer "+str((hdat1>>1)&0x0003))
+        print("..protect "+str(hdat1&0x0001))
+
+        print("HDAT0 : "+str(hdat0))
+        print("..bitr "+str((hdat0&0xf000)>>12))
+        print("..sampler "+str((hdat0>>10)&0x0003))
+        print("..mode "+str((hdat0>>6)&0x0003))
+        

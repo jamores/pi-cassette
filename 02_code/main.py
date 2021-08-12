@@ -1,9 +1,9 @@
 import sd,io
 import sdcard,spi_handler
 import vs1053
-import time
-from machine import Pin
-import uos
+import time,utime
+from machine import Pin,SPI
+import os
 
 BUFFER_SIZE = 64
 
@@ -25,9 +25,11 @@ audio = vs1053.VS1053(0,
         xdcs = io.pinout.AUDIO_XDCS,
         dreq = io.pinout.AUDIO_DREQ)
 
-sd_wrapper = sd.SDWrapper(0,sck=io.pinout.SPI_SCK, mosi=io.pinout.SPI_MOSI, miso=io.pinout.SPI_MISO, cs = io.pinout.SPI_CS_SD)
-sd = sdcard.SDCard(sd_wrapper.spi, io.pinout.SPI_CS_SD)
-uos.mount(sd, '/sd')
+#sd_wrapper = sd.SDWrapper(0,sck=io.pinout.SPI_SCK, mosi=io.pinout.SPI_MOSI, miso=io.pinout.SPI_MISO, cs = io.pinout.SPI_CS_SD)
+_spi = SPI(0,sck=io.pinout.SPI_SCK, mosi=io.pinout.SPI_MOSI, miso=io.pinout.SPI_MISO)
+#sd = sdcard.SDCard(_spi, io.pinout.SPI_CS_SD)
+#vfs = os.VfsFat(sd)
+#os.mount(sd, '/sd')
 
 if 0:
     print("io : read text file")
@@ -47,12 +49,20 @@ if 0:
             print(i_read)
     print("io : DONE read binary file")
 
-if 1:
+if 0:
     audio.reset()
     print("audio : playing test tone")
     audio.set_volume(40,40)
     audio.sine_test(0x44,2.0)
 
+if 0:
+    print("audio : read MP3 file")
+    buf=bytearray(32)
+    #with open('/sd/mp3_00.mp3',"rb") as fp:
+    with open('/mp3/mp3_00.mp3','rb') as fp:
+        while fp.readinto(buf):
+            print('.')
+    print("audio : STOP read MP3 file")
 if 1:
     print("audio : play MP3 file")
     
@@ -63,16 +73,22 @@ if 1:
 
     print("a.epoch DREQ {}".format(io.pinout.AUDIO_DREQ()))
     audio.reset()
-    audio.set_volume(40,40)
+    #while(io.pinout.AUDIO_DREQ() == 0):
+    #    time.sleep_ms(10)
+    #    audio.reset()
+    ##audio.set_volume(40,40)
     print("a.reset DREQ {}".format(io.pinout.AUDIO_DREQ()))
     audio.start_play()
     print("a.start_play DREQ {}".format(io.pinout.AUDIO_DREQ()))
     
-    with open('/sd/mp3_01.mp3',"rb") as fp:
+    
+    ticks_a = utime.ticks_ms()
+    #with open('/sd/mp3_00.mp3',"rb") as fp:
+    with open('/mp3/mp3_00.mp3','rb') as fp:
         audio.playb(fp)
-    print("audio : STOP play MP3 file")
-    print(audio._sci_read(vs1053._VS1053_REG_HDAT0))
-    print(audio._sci_read(vs1053._VS1053_REG_HDAT1))
+    ticks_b = utime.ticks_ms()
+    print("audio : STOP play MP3 file in {} ms".format(utime.ticks_diff(ticks_b,ticks_a)))
+
 
     if 0:
         with open('/sd/mp3_01.mp3',"rb") as fp:
@@ -91,8 +107,9 @@ if 1:
         print("audio : irq.cb_cnt : {}".format(audio_feeder.cb_cnt))
         print("audio : STOP play MP3 file")
 
-while True:
-    for a in range(0,65536,10000):
-        io.setLed(a)
-        io.toString()
-        time.sleep_ms(500)
+if 0:
+    while True:
+        for a in range(0,65536,10000):
+            io.setLed(a)
+            io.toString()
+            time.sleep_ms(500)
